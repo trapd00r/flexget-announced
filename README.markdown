@@ -1,7 +1,7 @@
 flexget-announced
 ===========
 Daemon that sits silently in the background and announces whenever a new TV
-is available. 
+episode is available. 
 
 License
 =======
