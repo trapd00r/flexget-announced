@@ -1,0 +1,37 @@
+#!/usr/bin/perl
+# flexget-announced - daemon that announces new TV episodes
+
+use strict;
+use Proc::Daemon;
+
+my $flexlog = "/home/scp1/.flexget.log";
+my $newEp = "";
+print "Daemonizing, bye...\n";
+Proc::Daemon::Init;
+while(1) {
+  open(FLEX, "<", $flexlog) or die "$!\n";
+  my @records = <FLEX>;
+  close(FLEX);
+  my @episodes;
+  foreach my $record(@records) {
+    next unless($record =~ /Downloading:/);
+    $record =~ s/
+                 (?:       # do not catch
+                   \w+\s+  # word whitespace...
+                 ){2}      # ... two times
+                \w+:\s     # word: 
+               //x;
+    push(@episodes, $record) if $record =~ /(S[0-9]+)?(E[0-9]+)?(TV)/;
+  }
+  if($newEp ne @episodes[@episodes-1]) {
+    $newEp = @episodes[@episodes-1];
+    &notify($newEp);
+  }
+
+  sleep 300;
+}
+
+sub notify {
+  my $toSend = shift;
+  system("stumpish echo $toSend");
+}
