@@ -4,8 +4,10 @@
 use strict;
 use Proc::Daemon;
 
-my $flexlog = "/home/scp1/.flexget.log";
+my $notifier = 'stumpish echo';
+my $flexlog = "$ENV{HOME}/.flexget.log";
 my $newEp = "";
+
 print "Daemonizing, bye...\n";
 Proc::Daemon::Init;
 while(1) {
@@ -15,12 +17,7 @@ while(1) {
   my @episodes;
   foreach my $record(@records) {
     next unless($record =~ /Downloading:/);
-    $record =~ s/
-                 (?:       # do not catch
-                   \w+\s+  # word whitespace...
-                 ){2}      # ... two times
-                \w+:\s     # word: 
-               //x;
+    $record =~ s/(?:\w+\s+){2}\w+:\s//;
     push(@episodes, $record) if $record =~ /(S[0-9]+)?(E[0-9]+)?(TV)/;
   }
   if($newEp ne @episodes[@episodes-1]) {
@@ -33,5 +30,5 @@ while(1) {
 
 sub notify {
   my $toSend = shift;
-  system("stumpish echo $toSend");
+  system("$notifier $toSend");
 }
