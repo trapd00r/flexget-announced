@@ -3,13 +3,14 @@
 
 use strict;
 use Proc::Daemon;
+use App::Daemon qw(daemonize);
 
 my $notifier = 'stumpish echo';
 my $flexlog = "$ENV{HOME}/.flexget.log";
 my $newEp = "";
 
 print "Daemonizing, bye...\n";
-Proc::Daemon::Init;
+daemonize();
 while(1) {
   open(FLEX, "<", $flexlog) or die "$!\n";
   my @records = <FLEX>;
