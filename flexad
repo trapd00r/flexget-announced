@@ -2,8 +2,10 @@
 # flexget-announced - daemon that announces new TV episodes
 
 use strict;
-use Proc::Daemon;
 use App::Daemon qw(daemonize);
+use Getopt::Long;
+
+GetOptions('help' =>  \&usage);
 
 my $notifier = 'stumpish echo';
 my $flexlog = "$ENV{HOME}/.flexget.log";
@@ -32,4 +34,18 @@ while(1) {
 sub notify {
   my $toSend = shift;
   system("$notifier $toSend");
+}
+
+sub usage {
+  print << "USAGE";
+  $0 (start|stop|usage)
+  $0 OPTIONS
+  OPTIONS
+    -X  run in foreground
+    -l  log to file
+    -u  run as user
+    -p  pid file location
+
+USAGE
+exit 0;
 }
