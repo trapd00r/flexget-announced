@@ -1,51 +1,90 @@
 #!/usr/bin/perl
-# flexget-announced - daemon that announces new TV episodes
-
 use strict;
-use App::Daemon qw(daemonize);
 use Getopt::Long;
+use Pod::Usage;
 
-GetOptions('help' =>  \&usage);
+GetOptions(
+  kill  => \&killkid,
+  help  => sub { pod2usage(verbose => 1) },
+);
 
 my $notifier = 'stumpish echo';
-my $flexlog = "$ENV{HOME}/.flexget.log";
-my $newEp = "";
+my $flexlog  = "$ENV{HOME}/.flexget.log";
+my $pidfile  = '/tmp/flexad.pid';
+my $new_ep   = "";
 
-print "Daemonizing, bye...\n";
+sub daemonize {
+  use POSIX 'setsid';
+  my $PID = fork();
+  exit(0) if($PID); #parent
+  exit(1) if(!defined($PID)); # out of resources
+
+  setsid();
+  $PID = fork();
+  exit(1) if(!defined($PID));
+
+  if($PID) { # parent
+    waitpid($PID, 0);
+    unlink($pidfile); # remove the lock when child have died
+
+    exit(0);
+  }
+  elsif($PID == 0) { # child
+    open(my $fh, '>', $pidfile) or die("Cant open $pidfile: $!");
+    print $fh $$;
+    close($fh);
+    open(STDOUT, '>', '/dev/null');
+    open(STDERR, '>', '/dev/null');
+    open(STDIN,  '<', '/dev/null');
+  }
+}
+
+sub killkid {
+  open(my $fh, '<', $pidfile) or print "flexad is not running\n" and exit(1);
+  my $target = <$fh>;
+  close($fh);
+
+  if(kill(9, $target)) {
+    print "flexad with PID $target terminated\n";
+  }
+  else {
+    print "Could not kill $target: $!";
+  }
+  exit(0);
+}
+
 daemonize();
 while(1) {
-  open(FLEX, "<", $flexlog) or die "$!\n";
-  my @records = <FLEX>;
-  close(FLEX);
-  my @episodes;
-  foreach my $record(@records) {
+  open(my $flex, '<', $flexlog) or die("Can not open $flexlog: $!");
+  chomp(my @records = <$flex>);
+  close($flex);
+  my @episodes = ();
+
+  for my $record(@records) {
     next unless($record =~ /Downloading:/);
     $record =~ s/(?:\w+\s+){2}\w+:\s//;
     push(@episodes, $record) if $record =~ /(S[0-9]+)?(E[0-9]+)?(TV)/;
   }
-  if($newEp ne @episodes[@episodes-1]) {
-    $newEp = @episodes[@episodes-1];
-    &notify($newEp);
+  if($new_ep ne $episodes[scalar(@episodes)-1]) {
+    $new_ep = $episodes[scalar(@episodes)-1];
+    notify($new_ep);
   }
 
   sleep 300;
 }
 
 sub notify {
-  my $toSend = shift;
-  system("$notifier $toSend");
+  system("$notifier", shift);
 }
 
-sub usage {
-  print << "USAGE";
-  $0 (start|stop|usage)
-  $0 OPTIONS
-  OPTIONS
-    -X  run in foreground
-    -l  log to file
-    -u  run as user
-    -p  pid file location
+=pod
 
-USAGE
-exit 0;
-}
+=head1 NAME
+
+  flexget-announced - daemon that announced new TV episodes
+
+=head1 OPTIONS
+
+  -k,   -kill   kill a running flexad process
+
+=cut
